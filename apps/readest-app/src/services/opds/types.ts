@@ -32,6 +32,7 @@ export const AUTO_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 export interface PendingItem {
   entryId: string;
   title: string;
+  filenameParts?: { author: string; title: string };
   acquisitionHref: string;
   /** Cover advertised by the entry, preferred over the one inside the file (#5270). */
   coverHref?: string;
@@ -48,6 +49,8 @@ export interface FailedEntry {
   /** Feed page the href was found on; a relative href resolves against it. */
   baseURL?: string;
   title: string;
+  filenameParts?: { author: string; title: string };
+  mimeType?: string;
   attempts: number;
   lastAttemptAt: number;
 }

@@ -67,6 +67,7 @@ import { saveSubscriptionState, loadSubscriptionState } from '@/services/opds/su
 import { upsertOPDSSourceMapping } from '@/services/opds/sourceMap';
 import { applyOPDSCover } from '@/services/opds/cover';
 import { downloadFile } from '@/libs/storage';
+import { probeFilename } from '@/app/opds/utils/opdsReq';
 import { MAX_RETRY_ATTEMPTS, PERSIST_BATCH_SIZE } from '@/services/opds/types';
 
 const createMockAppService = () =>
@@ -94,6 +95,175 @@ describe('OPDS auto-download orchestrator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     appService = createMockAppService();
+  });
+
+  it.each([
+    'author-title',
+    'title-author',
+    'title',
+    undefined,
+  ] as const)('uses the catalog filename format only when enabled: %s', async (filenameFormat) => {
+    vi.mocked(checkFeedForNewItems).mockResolvedValueOnce([
+      {
+        entryId: 'urn:cwa:1',
+        title: 'Display title',
+        filenameParts: { author: 'Douglas Adams', title: 'Life, the Universe and Everything' },
+        acquisitionHref: '/book/1/kepub/',
+        mimeType: 'application/epub+zip',
+        baseURL: 'https://cwa.test/opds',
+      },
+    ]);
+    vi.mocked(probeFilename).mockResolvedValueOnce('server-name.epub');
+    const catalog: OPDSCatalog = {
+      id: 'cat-1',
+      name: 'CWA',
+      url: 'https://cwa.test/opds',
+      autoDownload: true,
+      filenameFormat,
+    };
+
+    await syncSubscribedCatalogs([catalog], appService, []);
+
+    const importedPath = vi.mocked(appService.importBook).mock.calls[0]?.[0];
+    const expected = {
+      'author-title': 'Douglas Adams - Life, the Universe and Everything.kepub.epub',
+      'title-author': 'Life, the Universe and Everything - Douglas Adams.kepub.epub',
+      title: 'Life, the Universe and Everything.kepub.epub',
+    };
+    if (filenameFormat) {
+      expect(importedPath).toEqual(expect.stringContaining(`/cache/`));
+      expect(importedPath).toEqual(expect.stringContaining(`/${expected[filenameFormat]}`));
+      expect(appService.createDir).toHaveBeenCalledWith(expect.any(String), 'Cache', true);
+    } else {
+      expect(importedPath).toBe('/cache/server-name.epub');
+      expect(appService.createDir).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    {
+      filenameFormat: 'author-title',
+      filename: 'server-name.epub',
+      expected: 'Author - Raw title.epub',
+    },
+    {
+      filenameFormat: 'author-title',
+      filename: 'server-name.kepub.epub',
+      expected: 'Author - Raw title.kepub.epub',
+    },
+    { filenameFormat: undefined, filename: 'server-name.epub', expected: 'server-name.epub' },
+  ] as const)('handles generic acquisitions with format $filenameFormat and server filename $filename', async ({
+    filenameFormat,
+    filename,
+    expected,
+  }) => {
+    vi.mocked(checkFeedForNewItems).mockResolvedValueOnce([
+      {
+        entryId: 'urn:cwa:1',
+        title: 'Display title',
+        filenameParts: { author: 'Author', title: 'Raw title' },
+        acquisitionHref: '/book/1/download',
+        mimeType: 'application/octet-stream',
+        baseURL: 'https://cwa.test/opds',
+      },
+    ]);
+    vi.mocked(probeFilename).mockResolvedValueOnce(filename);
+
+    await syncSubscribedCatalogs(
+      [
+        {
+          id: 'cat-1',
+          name: 'CWA',
+          url: 'https://cwa.test/opds',
+          autoDownload: true,
+          filenameFormat,
+        },
+      ],
+      appService,
+      [],
+    );
+
+    expect(vi.mocked(appService.importBook).mock.calls[0]?.[0]).toEqual(
+      expect.stringContaining(`/${expected}`),
+    );
+  });
+
+  it('keeps equally named downloads in separate cache folders', async () => {
+    vi.mocked(checkFeedForNewItems).mockResolvedValueOnce(
+      ['1', '2'].map((id) => ({
+        entryId: `urn:cwa:${id}`,
+        title: 'Shared title',
+        filenameParts: { author: 'Author', title: 'Shared title' },
+        acquisitionHref: `/book/${id}/epub`,
+        mimeType: 'application/epub+zip',
+        baseURL: 'https://cwa.test/opds',
+      })),
+    );
+
+    await syncSubscribedCatalogs(
+      [
+        {
+          id: 'cat-1',
+          name: 'CWA',
+          url: 'https://cwa.test/opds',
+          autoDownload: true,
+          filenameFormat: 'author-title',
+        },
+      ],
+      appService,
+      [],
+    );
+
+    const paths = vi.mocked(appService.importBook).mock.calls.map(([path]) => path);
+    expect(paths).toHaveLength(2);
+    expect(new Set(paths).size).toBe(2);
+    for (const path of paths) {
+      expect(path).toEqual(expect.stringMatching(/\/Author - Shared title\.epub$/));
+    }
+  });
+
+  it('retains the filename metadata and format when retrying a failed download', async () => {
+    const state: OPDSSubscriptionState = {
+      catalogId: 'cat-1',
+      lastCheckedAt: 0,
+      knownEntryIds: [],
+      failedEntries: [],
+    };
+    const catalog: OPDSCatalog = {
+      id: 'cat-1',
+      name: 'CWA',
+      url: 'https://cwa.test/opds',
+      autoDownload: true,
+      filenameFormat: 'author-title',
+    };
+    vi.mocked(loadSubscriptionState).mockResolvedValueOnce(state);
+    vi.mocked(checkFeedForNewItems).mockResolvedValueOnce([
+      {
+        entryId: 'urn:cwa:1',
+        title: 'Display title',
+        filenameParts: { author: 'Author', title: 'Raw title' },
+        acquisitionHref: '/book/1/download',
+        mimeType: 'application/epub+zip',
+        baseURL: 'https://cwa.test/opds',
+      },
+    ]);
+    vi.mocked(downloadFile).mockRejectedValueOnce(new Error('Interrupted'));
+
+    await syncSubscribedCatalogs([catalog], appService, []);
+
+    expect(state.failedEntries[0]).toMatchObject({
+      filenameParts: { author: 'Author', title: 'Raw title' },
+      mimeType: 'application/epub+zip',
+    });
+    state.failedEntries[0]!.lastAttemptAt = 0;
+    vi.mocked(loadSubscriptionState).mockResolvedValueOnce(state);
+    vi.mocked(checkFeedForNewItems).mockResolvedValueOnce([]);
+
+    await syncSubscribedCatalogs([catalog], appService, []);
+
+    expect(vi.mocked(appService.importBook).mock.calls[0]?.[0]).toEqual(
+      expect.stringMatching(/\/Author - Raw title\.epub$/),
+    );
   });
 
   it('skips catalogs without autoDownload enabled', async () => {

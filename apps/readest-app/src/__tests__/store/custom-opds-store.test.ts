@@ -38,6 +38,23 @@ beforeEach(() => {
 });
 
 describe('customOPDSStore', () => {
+  test('persists per-catalog naming without changing other catalogs or defaulting it on', async () => {
+    const store = useCustomOPDSStore.getState();
+    store.addCatalog({
+      id: 'a',
+      name: 'A',
+      url: 'https://a.test/opds',
+      filenameFormat: 'author-title',
+    });
+    store.addCatalog({ id: 'b', name: 'B', url: 'https://b.test/opds' });
+    await store.saveCustomOPDSCatalogs(makeEnvConfig());
+    useCustomOPDSStore.setState({ catalogs: [] });
+    await useCustomOPDSStore.getState().loadCustomOPDSCatalogs(makeEnvConfig());
+    expect(useCustomOPDSStore.getState().getCatalog('a')?.filenameFormat).toBe('author-title');
+    expect(useCustomOPDSStore.getState().getCatalog('b')?.filenameFormat).toBeUndefined();
+    useCustomOPDSStore.getState().updateCatalog('a', { filenameFormat: undefined });
+    expect(useCustomOPDSStore.getState().getCatalog('a')?.filenameFormat).toBeUndefined();
+  });
   describe('addCatalog', () => {
     test('allows self-signed certificates for a newly added catalog unless asked not to', () => {
       const store = useCustomOPDSStore.getState();

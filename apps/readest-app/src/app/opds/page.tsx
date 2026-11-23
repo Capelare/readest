@@ -54,6 +54,11 @@ import { applyOPDSCover, getOPDSCoverHref, getOPDSImageCacheFilename } from '@/s
 import { applyOPDSMetadata, getOPDSBookMetadata } from '@/services/opds/metadata';
 import { buildPseStreamFileName } from '@/services/opds/pseStream';
 import { md5 } from '@/utils/md5';
+import {
+  getOPDSAcquisitionExtension,
+  getOPDSFilenameParts,
+  makeOPDSFilename,
+} from '@/utils/opdsFilename';
 import { makeOpdsAudioFilePath, opdsAudioIdentity } from '@/services/opds/audiobook';
 import {
   makeBookOrbitAudioFilePath,
@@ -656,8 +661,21 @@ export default function BrowserPage() {
             onProgress,
           });
           const probedFilename = await probeFilename(responseHeaders);
-          if (probedFilename) {
-            const newFilePath = await appService?.resolveFilePath(probedFilename, 'Cache');
+          const extension = getOPDSAcquisitionExtension(url, ext, probedFilename);
+          const parts = publication ? getOPDSFilenameParts(publication) : undefined;
+          const formattedFilename =
+            catalog?.filenameFormat && parts && extension
+              ? makeOPDSFilename(parts.author, parts.title, catalog.filenameFormat, extension)
+              : '';
+          const downloadFilename = formattedFilename || probedFilename;
+          if (downloadFilename) {
+            if (formattedFilename) {
+              await appService.createDir(basename, 'Cache', true);
+            }
+            const newFilePath = await appService.resolveFilePath(
+              formattedFilename ? `${basename}/${downloadFilename}` : downloadFilename,
+              'Cache',
+            );
             await appService?.copyFile(dstFilePath, 'None', newFilePath, 'None');
             await appService?.deleteFile(dstFilePath, 'None');
             console.log('Renamed downloaded file to:', newFilePath);
@@ -778,6 +796,7 @@ export default function BrowserPage() {
       catalogSourceId,
       publication,
       publicationCoverHref,
+      catalog?.filenameFormat,
       settings.bookorbit,
     ],
   );

@@ -27,6 +27,7 @@ import {
 import type { PendingItem, SyncResult, OPDSSubscriptionState, FailedEntry } from './types';
 import { runWithConcurrency } from '@/utils/concurrency';
 import { uniqueId } from '@/utils/misc';
+import { getOPDSAcquisitionExtension, makeOPDSFilename } from '@/utils/opdsFilename';
 
 const BOOK_PULL = { connector: 'opds', direction: 'pull', kind: 'books' } as const;
 
@@ -134,8 +135,25 @@ async function downloadAndImport(
   });
 
   const probedFilename = await probeFilename(responseHeaders);
-  if (probedFilename) {
-    const newFilePath = await appService.resolveFilePath(probedFilename, 'Cache');
+  const extension = getOPDSAcquisitionExtension(url, ext, probedFilename);
+  const formattedFilename =
+    catalog.filenameFormat && extension
+      ? makeOPDSFilename(
+          item.filenameParts?.author ?? '',
+          item.filenameParts?.title ?? item.title,
+          catalog.filenameFormat,
+          extension,
+        )
+      : '';
+  const downloadFilename = formattedFilename || probedFilename;
+  if (downloadFilename) {
+    if (formattedFilename) {
+      await appService.createDir(basename, 'Cache', true);
+    }
+    const newFilePath = await appService.resolveFilePath(
+      formattedFilename ? `${basename}/${downloadFilename}` : downloadFilename,
+      'Cache',
+    );
     await appService.copyFile(dstFilePath, 'None', newFilePath, 'None');
     await appService.deleteFile(dstFilePath, 'None');
     dstFilePath = newFilePath;
@@ -219,8 +237,9 @@ async function syncCatalog(
   const retryItems: PendingItem[] = state.failedEntries.filter(isRetryEligible).map((fe) => ({
     entryId: fe.entryId,
     title: fe.title,
+    filenameParts: fe.filenameParts,
     acquisitionHref: fe.href,
-    mimeType: 'application/octet-stream',
+    mimeType: fe.mimeType ?? 'application/octet-stream',
     // Failures saved before baseURL was recorded fall back to the catalog root.
     baseURL: fe.baseURL ?? catalog.url,
   }));
@@ -291,6 +310,8 @@ async function syncCatalog(
               href: item.acquisitionHref,
               baseURL: item.baseURL,
               title: item.title,
+              filenameParts: item.filenameParts,
+              mimeType: item.mimeType,
               attempts,
               lastAttemptAt: Date.now(),
             });

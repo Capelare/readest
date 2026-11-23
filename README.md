@@ -68,6 +68,17 @@
 | **Accessibility**                          | Provides full keyboard navigation and support for screen readers such as VoiceOver, TalkBack, NVDA, and Orca.         |
 | **Visual & Focus Aids**                    | Reading ruler, paragraph-by-paragraph reading mode, and speed reading features.                                        |
 
+### OPDS download filenames
+
+Edit an OPDS catalog and use **Downloaded Filename** to choose **Author - Title**,
+**Title - Author**, or **Title Only**. Names use the feed's first author and title,
+replace invalid filename characters, and limit the base name to 100 UTF-8 bytes
+before the extension. **Default (server filename)** keeps the existing download
+naming behavior.
+
+The setting applies to new manual and automatic downloads, including retries.
+It does not rename existing library files or change Readest's managed filenames.
+
 ## Planned Features
 
 <div align="right">🛠 Building  |  🔄 Planned</div>

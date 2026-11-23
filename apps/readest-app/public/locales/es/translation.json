@@ -1,4 +1,10 @@
 {
+  "Downloaded Filename": "Nombre del archivo descargado",
+  "Default (server filename)": "Predeterminado (nombre del servidor)",
+  "Author - Title": "Autor - Título",
+  "Title - Author": "Título - Autor",
+  "Title Only": "Solo título",
+  "Applies only to new downloads from this catalog. Existing files are not renamed.": "Se aplica solo a las nuevas descargas de este catálogo. Los archivos existentes no se renombran.",
   "On hold": "En pausa",
   "Mark as On hold": "Marcar como en pausa",
   "(detected)": "(detectado)",

@@ -46,6 +46,16 @@ const makeRow = (overrides: Partial<ReplicaRow> = {}): ReplicaRow => ({
 });
 
 describe('opdsCatalogAdapter', () => {
+  test('round-trips each naming policy and an explicit disabled value', () => {
+    for (const filenameFormat of ['author-title', 'title-author', 'title', undefined] as const) {
+      const fields = opdsCatalogAdapter.pack({ ...sample, filenameFormat });
+      expect(opdsCatalogAdapter.unpack(fields).filenameFormat).toBe(filenameFormat);
+      const row = makeRow();
+      row.fields_jsonb['filenameFormat'] = env(filenameFormat ?? null);
+      expect(opdsCatalogAdapter.unpackRow(row, '')?.filenameFormat).toBe(filenameFormat);
+    }
+    expect(opdsCatalogAdapter.unpackRow(makeRow(), '')?.filenameFormat).toBeUndefined();
+  });
   test('syncs the self-signed certificate choice, including an explicit false', () => {
     for (const allowSelfSignedCert of [true, false]) {
       const fields = opdsCatalogAdapter.pack({ ...sample, allowSelfSignedCert });

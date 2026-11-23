@@ -18,6 +18,7 @@ import { allowsSelfSignedCertAt } from '@/utils/tls';
 import { getOPDSCoverHref } from './cover';
 import { classifyAcquisitionLink, pickPreferredLink } from './formats';
 import { getOPDSBookMetadata } from './metadata';
+import { getOPDSFilenameParts } from '@/utils/opdsFilename';
 import type { OPDSSubscriptionState, PendingItem } from './types';
 import { MAX_CRAWL_DEPTH, MAX_FEEDS_PER_CRAWL, MAX_PAGES_PER_FEED } from './types';
 
@@ -129,6 +130,7 @@ export function collectNewEntries(
     items.push({
       entryId,
       title: pub.metadata.title || acqLink.title || 'Untitled',
+      filenameParts: getOPDSFilenameParts(pub),
       acquisitionHref: acqLink.href,
       coverHref: getOPDSCoverHref(pub),
       metadata: Object.keys(metadata).length ? metadata : undefined,

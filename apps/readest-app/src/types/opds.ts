@@ -20,6 +20,8 @@ export const REL = {
 
 export const SYMBOL = FOLIATE_SYMBOL as { SUMMARY: symbol; CONTENT: symbol };
 
+export type OPDSFilenameFormat = 'author-title' | 'title-author' | 'title';
+
 export interface OPDSCatalog {
   id: string;
   name: string;
@@ -31,6 +33,7 @@ export interface OPDSCatalog {
   password?: string;
   customHeaders?: Record<string, string>;
   autoDownload?: boolean;
+  filenameFormat?: OPDSFilenameFormat;
   /**
    * Accept a self-signed or mismatched TLS certificate from this catalog on
    * native requests. Unset on catalogs saved before the option existed, which

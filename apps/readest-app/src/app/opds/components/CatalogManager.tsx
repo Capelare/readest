@@ -43,6 +43,7 @@ import { ensurePassphraseUnlocked } from '@/services/sync/passphraseGate';
 import { isCredentialsSyncEnabled } from '@/services/sync/syncCategories';
 import { isSyncError } from '@/libs/errors';
 import { OPDSCatalog } from '@/types/opds';
+import { isOPDSFilenameFormat } from '@/utils/opdsFilename';
 import { isLanAddress } from '@/utils/network';
 import { isSelfHosted } from '@/utils/access';
 import { allowsSelfSignedCert } from '@/utils/tls';
@@ -125,6 +126,7 @@ const EMPTY_NEW_CATALOG = {
   customHeadersInput: '',
   proxyConsent: false,
   autoDownload: false,
+  filenameFormat: '',
   allowSelfSignedCert: true,
 };
 
@@ -548,6 +550,9 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
         password: newCatalog.password || undefined,
         customHeaders,
         autoDownload: newCatalog.autoDownload || undefined,
+        filenameFormat: isOPDSFilenameFormat(newCatalog.filenameFormat)
+          ? newCatalog.filenameFormat
+          : undefined,
         allowSelfSignedCert: newCatalog.allowSelfSignedCert,
       });
     } else {
@@ -560,6 +565,9 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
         password: newCatalog.password || undefined,
         customHeaders,
         autoDownload: newCatalog.autoDownload || undefined,
+        filenameFormat: isOPDSFilenameFormat(newCatalog.filenameFormat)
+          ? newCatalog.filenameFormat
+          : undefined,
         allowSelfSignedCert: newCatalog.allowSelfSignedCert,
       });
     }
@@ -584,6 +592,7 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
       customHeadersInput: formatCustomHeadersInput(catalog.customHeaders),
       proxyConsent: false,
       autoDownload: catalog.autoDownload || false,
+      filenameFormat: catalog.filenameFormat ?? '',
       allowSelfSignedCert: allowsSelfSignedCert(catalog),
     });
     setEditingCatalogId(catalog.id);
@@ -1016,6 +1025,28 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
                     </div>
                   </label>
                 </div>
+
+                <label className='flex flex-col gap-2 text-sm'>
+                  {_('Downloaded Filename')}
+                  <select
+                    className='select eink-bordered w-full'
+                    value={newCatalog.filenameFormat}
+                    onChange={(e) =>
+                      setNewCatalog({ ...newCatalog, filenameFormat: e.target.value })
+                    }
+                    disabled={isValidating}
+                  >
+                    <option value=''>{_('Default (server filename)')}</option>
+                    <option value='author-title'>{_('Author - Title')}</option>
+                    <option value='title-author'>{_('Title - Author')}</option>
+                    <option value='title'>{_('Title Only')}</option>
+                  </select>
+                  <span className='text-xs text-base-content/60'>
+                    {_(
+                      'Applies only to new downloads from this catalog. Existing files are not renamed.',
+                    )}
+                  </span>
+                </label>
 
                 <div className='modal-action gap-3'>
                   <button

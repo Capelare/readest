@@ -1,5 +1,6 @@
 import { md5 } from '@/utils/md5';
-import type { OPDSCatalog } from '@/types/opds';
+import type { OPDSCatalog, OPDSFilenameFormat } from '@/types/opds';
+import { isOPDSFilenameFormat } from '@/utils/opdsFilename';
 import type { ReplicaAdapter } from '@/services/sync/replicaRegistry';
 import type { FieldsObject, ReplicaRow } from '@/types/replica';
 import { defaultComputeId, unwrap } from './helpers';
@@ -14,6 +15,7 @@ interface UnwrappedOpdsFields {
   icon?: string;
   customHeaders?: Record<string, string>;
   autoDownload?: boolean;
+  filenameFormat?: OPDSFilenameFormat;
   disabled?: boolean;
   allowSelfSignedCert?: boolean;
   addedAt?: number;
@@ -29,6 +31,7 @@ const unwrapOpdsFields = (fields: FieldsObject): UnwrappedOpdsFields => {
   const icon = unwrap(fields['icon']);
   const customHeaders = unwrap(fields['customHeaders']);
   const autoDownload = unwrap(fields['autoDownload']);
+  const filenameFormat = unwrap(fields['filenameFormat']);
   const disabled = unwrap(fields['disabled']);
   const allowSelfSignedCert = unwrap(fields['allowSelfSignedCert']);
   const addedAt = unwrap(fields['addedAt']);
@@ -50,6 +53,7 @@ const unwrapOpdsFields = (fields: FieldsObject): UnwrappedOpdsFields => {
         ? (customHeaders as Record<string, string>)
         : undefined,
     autoDownload: autoDownload === true ? true : undefined,
+    filenameFormat: isOPDSFilenameFormat(filenameFormat) ? filenameFormat : undefined,
     disabled: disabled === true ? true : undefined,
     allowSelfSignedCert: typeof allowSelfSignedCert === 'boolean' ? allowSelfSignedCert : undefined,
     addedAt: typeof addedAt === 'number' ? addedAt : undefined,
@@ -84,6 +88,7 @@ export const opdsCatalogAdapter: ReplicaAdapter<OPDSCatalog> = {
     if (catalog.icon !== undefined) fields['icon'] = catalog.icon;
     if (catalog.customHeaders !== undefined) fields['customHeaders'] = catalog.customHeaders;
     if (catalog.autoDownload !== undefined) fields['autoDownload'] = catalog.autoDownload;
+    fields['filenameFormat'] = catalog.filenameFormat ?? null;
     if (catalog.disabled !== undefined) fields['disabled'] = catalog.disabled;
     if (catalog.allowSelfSignedCert !== undefined)
       fields['allowSelfSignedCert'] = catalog.allowSelfSignedCert;
@@ -110,6 +115,9 @@ export const opdsCatalogAdapter: ReplicaAdapter<OPDSCatalog> = {
           ? (fields['customHeaders'] as Record<string, string>)
           : undefined,
       autoDownload: fields['autoDownload'] === true ? true : undefined,
+      filenameFormat: isOPDSFilenameFormat(fields['filenameFormat'])
+        ? fields['filenameFormat']
+        : undefined,
       disabled: fields['disabled'] === true ? true : undefined,
       allowSelfSignedCert:
         typeof fields['allowSelfSignedCert'] === 'boolean'
@@ -140,6 +148,7 @@ export const opdsCatalogAdapter: ReplicaAdapter<OPDSCatalog> = {
     if (fields.icon !== undefined) catalog.icon = fields.icon;
     if (fields.customHeaders !== undefined) catalog.customHeaders = fields.customHeaders;
     if (fields.autoDownload !== undefined) catalog.autoDownload = fields.autoDownload;
+    catalog.filenameFormat = fields.filenameFormat;
     if (fields.disabled !== undefined) catalog.disabled = fields.disabled;
     if (fields.allowSelfSignedCert !== undefined)
       catalog.allowSelfSignedCert = fields.allowSelfSignedCert;
